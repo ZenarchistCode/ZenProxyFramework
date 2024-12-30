@@ -27,6 +27,10 @@ Install this mod like any other mod - copy it into your server folder and add it
 
 This mod must be run on both client & server so make sure to repack it into your server mod or add it to your modlist to use it.
 
+The framework comes with an example .pbo file included for adding some basic proxy actions - repack that pbo file into your server modpack if you want to add some actions to your server but don't know how to.
+
+Don't forget to copy the types.xml entries if you want to enable persistence on the repaired sinks/searched objects.
+
 [h1]Repack & Source Code:[/h1]
 
 You can repack this mod if you like, and do anything else you want with it for that matter. The source code is on my GitHub at www.zenarchist.io
