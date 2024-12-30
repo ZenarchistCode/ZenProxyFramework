@@ -37,6 +37,8 @@ Alternatively, if you don't know how to repack mods but still want some basic ac
 
 Don't forget to copy the types.xml entries if you want to enable persistence on the repaired sinks/searched objects.
 
+The JSON config for turning on/off debug and overriding specific proxy objects is located in $serverprofiles:/Zenarchist/Utilities/ZenProxyFrameworkConfig.json
+
 [h1]Repack & Source Code:[/h1]
 
 You can repack this mod if you like, and do anything else you want with it for that matter. The source code is on my GitHub at www.zenarchist.io
