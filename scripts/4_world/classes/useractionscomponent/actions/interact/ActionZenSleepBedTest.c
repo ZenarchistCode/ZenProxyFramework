@@ -11,12 +11,12 @@ class ActionZenSleepBedTest : ActionInteractBase
     override void CreateConditionComponents()
     {
         m_ConditionItem = new CCINone; //CCINotPresent;
-        m_ConditionTarget = new CCTCursorParent(UAMaxDistances.DEFAULT);
+        m_ConditionTarget = new CCTCursor(UAMaxDistances.DEFAULT);
     }
 
     override string GetText()
     {
-        return "#STR_USRACT_ID_EMOTE_LYINGDOWN";
+        return "#STR_USRACT_ID_EMOTE_LYINGDOWN (DEBUG)";
     }
 
     override bool HasZenProxyTarget()

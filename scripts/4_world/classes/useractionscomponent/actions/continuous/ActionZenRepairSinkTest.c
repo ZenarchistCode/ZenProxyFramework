@@ -19,12 +19,12 @@ class ActionZenRepairSinkTest : ActionContinuousBase
 	override void CreateConditionComponents()
 	{
 		m_ConditionItem = new CCINonRuined;
-		m_ConditionTarget = new CCTCursorParent(UAMaxDistances.SMALL);
+		m_ConditionTarget = new CCTCursor(UAMaxDistances.SMALL);
 	}
 
 	override string GetText()
 	{
-		return "#repair";
+		return "#repair (DEBUG)";
 	}
 
 	override bool HasZenProxyTarget()

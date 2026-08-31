@@ -20,7 +20,7 @@ class ActionZenProxyTargetDebug : ActionInteractBase
     override void CreateConditionComponents()
     {
         m_ConditionItem = new CCINotPresent;
-        m_ConditionTarget = new CCTCursorParent(UAMaxDistances.DEFAULT);
+        m_ConditionTarget = new CCTCursor(UAMaxDistances.DEFAULT);
     }
 
     override string GetText()
@@ -50,11 +50,10 @@ class ActionZenProxyTargetDebug : ActionInteractBase
     {
         super.OnStartClient(action_data);
 
-        House party = House.Cast(action_data.m_Target.GetParent());
-        if (!party)
+        string proxyName = GetZenProxyTargetType(action_data);
+        if (proxyName == "")
             return;
 
-        string proxyName = GetZenActionProxyTarget(action_data);
         g_Game.CopyToClipboard(proxyName);
         g_Game.GetMission().OnEvent(ChatMessageEventTypeID, new ChatMessageEventParams(CCDirect, "", "[CLIENT] ProxyName: " + proxyName, ""));
     }
@@ -68,16 +67,8 @@ class ActionZenProxyTargetDebug : ActionInteractBase
             return;
 
         vector targetLS = zenProxyActionData.m_ProxyTargetLS;
-        vector targetWS = zenProxyActionData.m_ProxyTargetWS;
         string proxyTargetHouseType = zenProxyActionData.m_ProxyTargetHouseType;
         string proxyTargetProxyType = zenProxyActionData.m_ProxyTargetProxyType;
-        
-        House party = House.Cast(action_data.m_Target.GetParent());
-        if (!party)
-            return;
-
-        vector targetPos = party.GetPosition();
-        vector localPos = party.WorldToModel(targetPos);
 
         string proxyTarget = GetZenHouseProxyPlugin().GetTargetedProxy(proxyTargetHouseType, targetLS);
         SendMessageToClient(action_data.m_Player, "[SERVER] ProxyName - Client: " + proxyTarget + " / Server: " + proxyTargetProxyType);

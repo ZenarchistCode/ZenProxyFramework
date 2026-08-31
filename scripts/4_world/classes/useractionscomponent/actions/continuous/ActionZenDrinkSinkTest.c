@@ -6,7 +6,7 @@ class ActionZenDrinkSinkTest : ActionDrinkWellContinuous
 		m_CommandUID = DayZPlayerConstants.CMD_ACTIONFB_DRINKWELL;
 		m_FullBody = true;
 		m_StanceMask = DayZPlayerConstants.STANCEMASK_CROUCH;
-		m_Text = "#drink";
+		m_Text = "#drink (DEBUG)";
 	}
 
 	override void CreateConditionComponents()

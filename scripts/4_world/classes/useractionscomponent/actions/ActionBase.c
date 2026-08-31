@@ -34,7 +34,20 @@ modded class ActionBase
         return super.CreateActionData();
     }
 
+    override bool IsLockTargetOnUse()
+    {
+        if (HasZenProxyTarget())
+            return LockZenProxyTagetOnUse();
+
+        return super.IsLockTargetOnUse();
+    }
+
     bool HasZenProxyTarget()
+    {
+        return false;
+    }
+
+    bool LockZenProxyTagetOnUse() 
     {
         return false;
     }
@@ -57,9 +70,13 @@ modded class ActionBase
 
     string GetZenActionProxyTarget(ActionData action_data)
     {
-        vector targetLS;
-        vector targetWS;
-        string houseType;
+        if (!action_data)
+            return "";
+
+        // Once the action has been set up, use the proxy information we already captured.
+        ZenProxyActionData proxyActionData = ZenProxyActionData.Cast(action_data);
+        if (proxyActionData && proxyActionData.m_ProxyTargetProxyType != "")
+            return proxyActionData.m_ProxyTargetProxyType;
 
         return GetZenActionProxyTarget(action_data.m_Player, action_data.m_Target, action_data.m_MainItem);
     }
@@ -75,33 +92,99 @@ modded class ActionBase
 
     string GetZenActionProxyTargetEx(PlayerBase player, ActionTarget target, ItemBase item, out vector targetLS, out vector targetWS, out string houseType)
     {
-        #ifdef SERVER
+    #ifdef SERVER
         return "g_Game.IsDedicatedServer() = true";
-        #endif
+    #endif
 
-        if (!target || !target.GetParent() || !target.GetObject())
+        targetLS = vector.Zero;
+        targetWS = vector.Zero;
+        houseType = "";
+
+        if (!player)
             return "";
 
-        string parentType = "";
-        string targetType = "";
+        // Pre-1.29 / normal proxy behaviour:
+        // If DayZ still gave us the actual proxy + parent, use it exactly as before.
+        if (target && target.GetObject() && target.GetParent())
+        {
+            string directProxyTarget = ZenResolveProxyTarget(target.GetObject(), target.GetParent(), targetLS, targetWS, houseType);
 
-        if (target.GetParent())
-            parentType = target.GetParent().GetType();
+            if (directProxyTarget != "")
+                return directProxyTarget;
+        }
 
-        if (target.GetObject())
-            targetType = target.GetObject().GetType();
+        // DayZ 1.29 compatibility:
+        // ActionTargets now filters some P3D proxies with invalid object IDs.
+        // Do our own proxy raycast so we can still obtain the raw proxy + parent.
+        vector rayStart = g_Game.GetCurrentCameraPosition();
+        vector rayEnd = rayStart + g_Game.GetCurrentCameraDirection() * 5.0;
 
-        vector targetPos = target.GetObject().GetPosition(); // localspace of proxy obj inside house
-        vector worldPos = target.GetParent().ModelToWorld(targetPos);
+        RaycastRVParams rayInput = new RaycastRVParams(rayStart, rayEnd, player);
+        rayInput.flags = CollisionFlags.ALLOBJECTS;
+        rayInput.sorted = true;
 
-        houseType = GetZenProxyHouseTarget();
-        if (houseType == "")
-            houseType = target.GetParent().GetType();
+        array<ref RaycastRVResult> results = new array<ref RaycastRVResult>;
 
-        string proxyTarget = GetZenHouseProxyPlugin().GetTargetedProxy(houseType, targetPos);
+        if (!DayZPhysics.RaycastRVProxy(rayInput, results))
+            return "";
+
+        foreach (RaycastRVResult result : results)
+        {
+            if (!result)
+                continue;
+
+            if (result.hierLevel <= 0)
+                continue;
+
+            if (!result.obj || !result.parent)
+                continue;
+
+            if (result.parent.IsMan())
+                continue;
+
+            string proxyTarget = ZenResolveProxyTarget(result.obj, result.parent, targetLS, targetWS, houseType);
+
+            if (proxyTarget != "")
+                return proxyTarget;
+        }
+
+        return "";
+    }
+
+    string ZenResolveProxyTarget(Object proxyObject, Object parentObject, out vector targetLS, out vector targetWS, out string houseType)
+    {
+        if (!proxyObject || !parentObject)
+            return "";
+
+        vector proxyLocalPos = proxyObject.GetPosition();
+
+        string proxyHouseType = GetZenProxyHouseTarget();
+        if (proxyHouseType == "")
+            proxyHouseType = parentObject.GetType();
+
+        string proxyTarget = GetZenHouseProxyPlugin().GetTargetedProxy(proxyHouseType, proxyLocalPos);
+
+        if (!ZenIsValidProxyTarget(proxyTarget))
+            return "";
+
+        targetLS = proxyLocalPos;
+        targetWS = parentObject.ModelToWorld(proxyLocalPos);
+        houseType = proxyHouseType;
+
+        return proxyTarget;
+    }
+
+    bool ZenIsValidProxyTarget(string proxyTarget)
+    {
+        string actionTarget = GetZenProxyNameTarget();
+
+        if (actionTarget == "")
+            return false;
+
+        if (actionTarget == "proxy_debug")
+            return true;
 
         array<string> actionTargets = new array<string>;
-        string actionTarget = GetZenProxyNameTarget();
 
         if (actionTarget.IndexOf(",") != -1)
             actionTarget.Split(",", actionTargets);
@@ -110,15 +193,11 @@ modded class ActionBase
 
         foreach (string proxyCheck : actionTargets)
         {
-            if (proxyTarget == proxyCheck || proxyCheck == "proxy_debug")
-            {
-                targetLS = targetPos;
-                targetWS = worldPos;
-                return proxyTarget;
-            }
+            if (proxyTarget == proxyCheck)
+                return true;
         }
 
-        return "";
+        return false;
     }
 
     //! CLIENT -> SAVE PROXY TARGET INFO TO SYNC'D ACTIONDATA
@@ -126,7 +205,7 @@ modded class ActionBase
     {
         bool setupAction = super.SetupAction(player, target, item, action_data, extra_data);
 
-        if (HasZenProxyTarget() && setupAction && g_Game.IsClient())
+        if (setupAction && g_Game.IsClient() && HasZenProxyTarget())
         {
             ZenProxyActionData proxy_action_data;
             if (Class.CastTo(proxy_action_data, action_data))
@@ -273,9 +352,6 @@ modded class ActionBase
         for (int i = 0; i < nearest_objects.Count(); i++)
         {
             Object obj = nearest_objects.Get(i);
-
-            if (obj.IsMan())
-                continue;
 
             if (obj.IsKindOf(searchType))
                 return obj;

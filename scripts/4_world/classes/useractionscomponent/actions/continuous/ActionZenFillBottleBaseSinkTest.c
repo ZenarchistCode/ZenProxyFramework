@@ -7,7 +7,7 @@ class ActionZenFillBottleBaseSinkTest : ActionFillBottleBase
 		m_FullBody = true;
 		m_StanceMask = DayZPlayerConstants.STANCEMASK_CROUCH | DayZPlayerConstants.STANCEMASK_ERECT;
 		m_SpecialtyWeight = UASoftSkillsWeight.PRECISE_LOW;
-		m_Text = "#fill";
+		m_Text = "#fill (DEBUG)";
 	}
 
 	override void CreateConditionComponents()
