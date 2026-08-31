@@ -205,26 +205,35 @@ modded class ActionBase
     {
         bool setupAction = super.SetupAction(player, target, item, action_data, extra_data);
 
-        if (setupAction && g_Game.IsClient() && HasZenProxyTarget())
-        {
-            ZenProxyActionData proxy_action_data;
-            if (Class.CastTo(proxy_action_data, action_data))
-            {
-                vector proxyTargetLS;
-                vector proxyTargetWS;
-                string proxyTargetHouseType;
-                string proxyTargetProxyType;
+        if (!setupAction)
+            return false;
 
-                proxyTargetProxyType = GetZenActionProxyTargetEx(player, target, item, proxyTargetLS, proxyTargetWS, proxyTargetHouseType);
-                
-                proxy_action_data.m_ProxyTargetLS = proxyTargetLS;
-                proxy_action_data.m_ProxyTargetWS = proxyTargetWS;
-                proxy_action_data.m_ProxyTargetHouseType = proxyTargetHouseType;
-                proxy_action_data.m_ProxyTargetProxyType = proxyTargetProxyType;
-            }
+        if (!g_Game.IsClient() || !HasZenProxyTarget())
+            return true;
+
+        ZenProxyActionData proxyActionData = ZenProxyActionData.Cast(action_data);
+        if (!proxyActionData)
+            return false;
+
+        vector proxyTargetLS;
+        vector proxyTargetWS;
+        string proxyTargetHouseType;
+        string proxyTargetProxyType;
+
+        proxyTargetProxyType = GetZenActionProxyTargetEx(player, target, item, proxyTargetLS, proxyTargetWS, proxyTargetHouseType);
+
+        if (proxyTargetProxyType == "")
+        {
+            ClearInventoryReservationEx(action_data);
+            return false;
         }
 
-        return setupAction;
+        proxyActionData.m_ProxyTargetLS = proxyTargetLS;
+        proxyActionData.m_ProxyTargetWS = proxyTargetWS;
+        proxyActionData.m_ProxyTargetHouseType = proxyTargetHouseType;
+        proxyActionData.m_ProxyTargetProxyType = proxyTargetProxyType;
+
+        return true;
     }
 
     //! CLIENT -> WRITE TO SERVER
