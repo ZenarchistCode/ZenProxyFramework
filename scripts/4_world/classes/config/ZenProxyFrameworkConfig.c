@@ -92,7 +92,7 @@ class ZenProxyFrameworkConfig
 
 class ZenProxyOverride
 {
-	string HouseConfigType;
+	string HouseConfigType; // edit: 'HouseType' is a reserved keyword for 1.29: replaced with HouseConfigType.
 	string ProxyLocation;
 	string ProxyName;
 
