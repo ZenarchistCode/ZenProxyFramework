@@ -3,7 +3,8 @@ modded class House
 	static int LAST_ZENPROXY_HOUSE_SPAWN_TIMESTAMP;
 	protected static ref ZenHouseProxyPlugin m_ZenHouseProxyPlugin;
 
-	// These particular proxies don't auto-load for some reason - can't figure out why, so in the meantime here are some common static overrides
+	// These particular proxies don't auto-load for some reason.
+	// Keep common static overrides here.
 	static ref array<ref ZenProxyOverride> Static_OverrideHouseProxyData =
 	{
 		new ZenProxyOverride("Land_Rail_Station_Small", "-4.745543 -0.213070 1.197218", "sodamachine"),
@@ -25,11 +26,12 @@ modded class House
 		new ZenProxyOverride("Land_City_Store_WithStairs", "-4.122752 -0.576916 0.046144", "cashier"),
 		new ZenProxyOverride("Land_City_Store_WithStairs", "-4.123045 -0.576916 2.338696", "cashier"),
 		new ZenProxyOverride("Land_Office2", "-18.475609 -0.500156 8.031333", "sodamachine")
-		//! ^ LIST UPDATED 4th December, 2024
 	};
 
 	void House()
 	{
+		// Server only needs to inspect building models while generating
+		// the proxy cache. During normal operation it loads the JSON cache.
 		if (g_Game.IsDedicatedServer() && !GetZenProxyFrameworkConfig().DumpProxies)
 			return;
 
@@ -41,101 +43,94 @@ modded class House
 		if (!m_ZenHouseProxyPlugin)
 			m_ZenHouseProxyPlugin = ZenHouseProxyPlugin.Cast(GetPlugin(ZenHouseProxyPlugin));
 
+		if (!m_ZenHouseProxyPlugin)
+			return;
+
 		g_Game.GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(ZenDumpProxyData, 1000, false);
 	}
 
 	protected void ZenDumpProxyData()
 	{
-		if (m_ZenHouseProxyPlugin.HasLoadedProxiesFor(GetType()))
+		if (!m_ZenHouseProxyPlugin)
+			return;
+
+		string houseType = GetType();
+
+		// We only need to scan one instance of each building classname.
+		if (m_ZenHouseProxyPlugin.HasLoadedProxiesFor(houseType))
 			return;
 
 		LOD geometryLod = GetLODByName(LOD.NAME_GEOMETRY);
 		if (!geometryLod)
 			return;
 
-		// Get object's direct memory LODs/memory points
 		array<string> selectionsList = new array<string>;
 		GetSelectionList(selectionsList);
 
-		// Add Geometry LOD selections to list
-		array<Selection> geoSelections = new array<Selection>();
+		array<Selection> geoSelections = new array<Selection>;
 		geometryLod.GetSelections(geoSelections);
-		foreach (Selection selectionObj : geoSelections)
+
+		foreach (Selection geometrySelection : geoSelections)
 		{
-			if (selectionObj.GetName().Contains("."))
-				selectionsList.Insert(selectionObj.GetName());
+			string geometrySelectionName = geometrySelection.GetName();
+
+			if (geometrySelectionName.Contains("."))
+				selectionsList.Insert(geometrySelectionName);
 		}
 
 		if (selectionsList.Count() == 0)
 			return;
 
-		string type = GetType();
-		type.ToLower();
-
 		int scannedProxies = 0;
-		string proxyName;
-		vector proxyLocalSpace;
-		vector proxyWorldSpace;
-		array<string> selectionList = new array<string>;
 
-		// Search geometry LOD selections first
 		foreach (Selection selection : geoSelections)
 		{
 			string selectionName = selection.GetName();
 			selectionName.ToLower();
 
-			proxyLocalSpace = GetSelectionPositionLS(selectionName);
-
-			// Valid selection looks like this: 'proxy:\dz\structures\furniture\kitchen\fridge\fridge.001'
 			if (!selectionName.Contains("."))
 				continue;
 
-			// Easiest way to get final selection object name is to split the filepath by \ and test for . in proxyname
-			selectionName.Split("\\", selectionList);
+			vector proxyLocalSpace = GetSelectionPositionLS(selectionName);
 
-			foreach (string subselection : selectionList)
+			array<string> selectionPathParts = new array<string>;
+			selectionName.Split("\\", selectionPathParts);
+
+			foreach (string selectionPathPart : selectionPathParts)
 			{
-				if (!subselection.Contains("."))
+				if (!selectionPathPart.Contains("."))
 					continue;
 
-				proxyName = subselection.Substring(0, subselection.IndexOf("."));
-				proxyWorldSpace = GetSelectionPositionWS(selectionName);
+				int dotIndex = selectionPathPart.IndexOf(".");
+				if (dotIndex <= 0)
+					continue;
 
-				m_ZenHouseProxyPlugin.AddHouseProxyData(GetType(), proxyName, proxyLocalSpace);
+				string proxyName = selectionPathPart.Substring(0, dotIndex);
+
+				m_ZenHouseProxyPlugin.AddHouseProxyData(houseType, proxyName, proxyLocalSpace);
 				scannedProxies++;
+
+				break;
 			}
 		}
 
 		foreach (ZenProxyOverride proxyOverride : Static_OverrideHouseProxyData)
 		{
-			if (proxyOverride.HouseConfigType == GetType())
-			{
-				m_ZenHouseProxyPlugin.AddHouseProxyData(GetType(), proxyOverride.ProxyName, proxyOverride.ProxyLocation.ToVector());
-				scannedProxies++;
-			}
+			if (proxyOverride.HouseConfigType != houseType)
+				continue;
+
+			m_ZenHouseProxyPlugin.AddHouseProxyData(houseType, proxyOverride.ProxyName, proxyOverride.ProxyLocation.ToVector());
+			scannedProxies++;
 		}
 
-		// Add the custom override proxies if client-side (server-side handles this in the plugin after loading json)
-		/*if (g_Game.IsClient())
-		{
-			foreach (ZenProxyOverride proxyOverride : GetZenProxyFrameworkConfig().OverrideHouseProxyData)
-			{
-				if (proxyOverride.HouseConfigType == GetType())
-				{
-					m_ZenHouseProxyPlugin.AddHouseProxyData(GetType(), proxyOverride.ProxyName, proxyOverride.ProxyLocation.ToVector());
-					scannedProxies++;
-				}
-			}
-		}*/
-
 		if (scannedProxies > 0 && g_Game.IsDedicatedServer() && GetZenProxyFrameworkConfig().DebugOn)
-			Print("[ZenHouseProxyPlugin] Scanned " + scannedProxies + " proxies for: " + GetType());
+			ZenFunctions.DebugMessage("[ZenHouseProxyPlugin] Scanned " + scannedProxies + " proxies for: " + houseType);
 
 		LAST_ZENPROXY_HOUSE_SPAWN_TIMESTAMP = g_Game.GetTime();
 	}
 
 	static int GetLastZenProxySpawnTime()
 	{
-		return g_Game.GetTime() - House.LAST_ZENPROXY_HOUSE_SPAWN_TIMESTAMP;
+		return g_Game.GetTime() - LAST_ZENPROXY_HOUSE_SPAWN_TIMESTAMP;
 	}
 }
